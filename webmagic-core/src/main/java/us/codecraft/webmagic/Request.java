@@ -36,6 +36,8 @@ public class Request implements Serializable {
      * @see us.codecraft.webmagic.scheduler.PriorityScheduler
      */
     private long priority;
+    
+    private boolean isNeedCycleCraw;
 
     public Request() {
     }
@@ -124,7 +126,22 @@ public class Request implements Serializable {
         this.method = method;
     }
 
-    @Override
+    
+    public boolean isNeedCycleCraw() {
+		return isNeedCycleCraw;
+	}
+
+    /**
+     * 指定该request是否需要重复爬取，会在scheduler中做调用该方法做验证
+     * @param isNeedCycleCraw
+     *@author weirongzhi
+     *2016年9月28日下午2:34:44
+     */
+	public void setNeedCycleCraw(boolean isNeedCycleCraw) {
+		this.isNeedCycleCraw = isNeedCycleCraw;
+	}
+
+	@Override
     public String toString() {
         return "Request{" +
                 "url='" + url + '\'' +
