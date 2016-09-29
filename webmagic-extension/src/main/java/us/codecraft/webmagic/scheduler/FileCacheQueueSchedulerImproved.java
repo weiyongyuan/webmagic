@@ -104,14 +104,22 @@ public class FileCacheQueueSchedulerImproved extends DuplicateRemovedScheduler i
                         String url=request.getUrl();
                         temp=!urls.add(url);//原来验证URL是否存在
                         //正则匹配
-                        for (String regex : regexs) {
-                        	//如果该request是需要重复抓取的，或者符合重复抓取的正则，则return false 重复进行抓取
-                        	if(request.isNeedCycleCraw()||url.matches(regex)){//二次校验，如果符合我们需要重新爬取的，返回false。可以重新爬取
+                        if (regexs.size()>0) {
+                        	for (String regex : regexs) {
+                            	//如果该request是需要重复抓取的，或者符合重复抓取的正则，则return false 重复进行抓取
+                            	if(request.isNeedCycleCraw()||url.matches(regex)){//二次校验，如果符合我们需要重新爬取的，返回false。可以重新爬取
+                            		temp=false;
+                            	}
+                            	return temp;
+    							
+    						}
+						} else {
+							if(request.isNeedCycleCraw()){//二次校验，如果符合我们需要重新爬取的，返回false。可以重新爬取
                         		temp=false;
                         	}
                         	return temp;
-							
 						}
+                        
 						return true;
                     }
  
