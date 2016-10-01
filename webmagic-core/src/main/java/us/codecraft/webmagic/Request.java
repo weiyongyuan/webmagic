@@ -137,8 +137,9 @@ public class Request implements Serializable {
      *@author weirongzhi
      *2016年9月28日下午2:34:44
      */
-	public void setNeedCycleCraw(boolean isNeedCycleCraw) {
+	public Request setNeedCycleCraw(boolean isNeedCycleCraw) {
 		this.isNeedCycleCraw = isNeedCycleCraw;
+		return this;
 	}
 
 	@Override
