@@ -143,12 +143,9 @@ public class Request implements Serializable {
 	}
 
 	@Override
-    public String toString() {
-        return "Request{" +
-                "url='" + url + '\'' +
-                ", method='" + method + '\'' +
-                ", extras=" + extras +
-                ", priority=" + priority +
-                '}';
-    }
+	public String toString() {
+		return "Request [url=" + url + ", method=" + method + ", extras="
+				+ extras + ", priority=" + priority + ", isNeedCycleCraw="
+				+ isNeedCycleCraw + "]";
+	}
 }
