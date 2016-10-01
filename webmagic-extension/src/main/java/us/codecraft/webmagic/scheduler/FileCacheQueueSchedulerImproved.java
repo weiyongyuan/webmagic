@@ -252,7 +252,7 @@ public class FileCacheQueueSchedulerImproved extends DuplicateRemovedScheduler
 	}
 
 	/**
-	 * 
+	 * 源代码时poll的时候printlncursor，暂时把println（cursor）移到了push中
 	 * @return
 	 *@Request
 	 *@by weirongzhi
