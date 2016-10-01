@@ -179,8 +179,9 @@ public class FileCacheQueueScheduler extends DuplicateRemovedScheduler implement
 
     @Override
     protected void pushWhenNoDuplicate(Request request, Task task) {
-        queue.add(request);
+    	queue.add(request);
         fileUrlWriter.println(request.getUrl());
+        fileCursorWriter.println(cursor.incrementAndGet());
     }
 
     @Override
@@ -188,7 +189,7 @@ public class FileCacheQueueScheduler extends DuplicateRemovedScheduler implement
         if (!inited.get()) {
             init(task);
         }
-        fileCursorWriter.println(cursor.incrementAndGet());
+      //  fileCursorWriter.println(cursor.incrementAndGet());
         return queue.poll();
     }
 
