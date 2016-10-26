@@ -122,8 +122,9 @@ public class Request implements Serializable {
         return method;
     }
 
-    public void setMethod(String method) {
+    public Request setMethod(String method) {
         this.method = method;
+        return this;
     }
 
     

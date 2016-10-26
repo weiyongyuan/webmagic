@@ -1,9 +1,13 @@
 package us.codecraft.webmagic.downloader;
 
-import com.google.common.collect.Sets;
+import java.io.IOException;
+import java.nio.charset.Charset;
+import java.util.Map;
+import java.util.Set;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.http.Header;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
@@ -23,6 +27,10 @@ import org.jsoup.select.Elements;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.collect.Sets;
+import com.googlecode.concurrentlinkedhashmap.ConcurrentLinkedHashMap;
+import com.googlecode.concurrentlinkedhashmap.EvictionListener;
+
 import us.codecraft.webmagic.Page;
 import us.codecraft.webmagic.Request;
 import us.codecraft.webmagic.Site;
@@ -31,12 +39,6 @@ import us.codecraft.webmagic.proxy.Proxy;
 import us.codecraft.webmagic.selector.PlainText;
 import us.codecraft.webmagic.utils.HttpConstant;
 import us.codecraft.webmagic.utils.UrlUtils;
-
-import java.io.IOException;
-import java.nio.charset.Charset;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
 
 /**
  * The http downloader based on HttpClient.
@@ -48,23 +50,54 @@ import java.util.Set;
 public class HttpClientDownloader extends AbstractDownloader {
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
-
-	private final Map<String, CloseableHttpClient> httpClients = new HashMap<String, CloseableHttpClient>();
+	
+	private final ConcurrentLinkedHashMap<String, CloseableHttpClient> httpClients = new ConcurrentLinkedHashMap.Builder<String, CloseableHttpClient>().maximumWeightedCapacity(200).listener(new EvictionListener<String, CloseableHttpClient>() {
+		
+		@Override
+		public void onEviction(String key, CloseableHttpClient value) {
+			logger.info("当前失效的key="+key+" value="+value);
+		}
+	}).build();
 
 	private HttpClientGenerator httpClientGenerator = new HttpClientGenerator();
 
-	private CloseableHttpClient getHttpClient(Site site, Proxy proxy) {
+	public CloseableHttpClient getHttpClient(Site site, Proxy proxy) {
+		
 		if (site == null) {
 			return httpClientGenerator.getClient(null, proxy);
 		}
-		String domain = site.getDomain();
-		CloseableHttpClient httpClient = httpClients.get(domain);
+		String uuid = site.getUuid();
+		CloseableHttpClient httpClient = null;
+		if (uuid==null) {
+			uuid=site.getDomain();
+			httpClient=httpClients.get(uuid);
+		} else {
+			httpClient =httpClients.get(uuid);
+		}
+		if (httpClient== null) {
+			synchronized (this) {
+				httpClient = httpClients.get(uuid);
+				if (httpClient == null) {
+					httpClient =httpClientGenerator.getClient(site, proxy);
+					httpClients.put(uuid, httpClient);
+				}
+			}
+		}
+		return httpClient;
+	}
+	public CloseableHttpClient getHttpClient(Site site,Request request, Proxy proxy) {
+		
+		if (request == null) {
+			return httpClientGenerator.getClient(null, proxy);
+		}
+		String hashCode = request.hashCode()+"";
+		CloseableHttpClient httpClient = httpClients.get(hashCode);
 		if (httpClient == null) {
 			synchronized (this) {
-				httpClient = httpClients.get(domain);
+				httpClient = httpClients.get(hashCode);
 				if (httpClient == null) {
 					httpClient = httpClientGenerator.getClient(site, proxy);
-					httpClients.put(domain, httpClient);
+					httpClients.put(hashCode, httpClient);
 				}
 			}
 		}
@@ -77,6 +110,7 @@ public class HttpClientDownloader extends AbstractDownloader {
 		if (task != null) {
 			site = task.getSite();
 		}
+		
 		Set<Integer> acceptStatCode;
 		String charset = null;
 		Map<String, String> headers = null;
@@ -103,15 +137,36 @@ public class HttpClientDownloader extends AbstractDownloader {
 
 			HttpUriRequest httpUriRequest = getHttpUriRequest(request, site,
 					headers, proxyHost);// ���������˴���
+			Header[] allHeaders = httpUriRequest.getAllHeaders();
+			for (Header header : allHeaders) {
+				logger.info("请求之前的header--->"+header.getName()+":"+header.getValue());
+			}
+			
 			httpResponse = getHttpClient(site, proxy).execute(httpUriRequest);// getHttpClient�������˴�����֤
 			statusCode = httpResponse.getStatusLine().getStatusCode();
+			
+			/*
+			 * 执行完请求后加该URL加入site的Referer,这样上次的请求URL会自动作为下次的Referer而携带，
+			 * 但是有些Referer还是需要自己手动吊针一些以与网站保持一致，在Process()方法中对于具体的
+			 * 请求在调用addTargetRequest()之前再次site.addHeader()覆盖即可
+			 */
+		
+			//site.addHeader("Referer", request.getUrl());
+			//将返回的header中的Set-Cookie放入extra并加process方法中加入下次请求的header
+			request.putExtra("Set-Cookie", httpResponse.getHeaders("Set-Cookie"));
+			request.putExtra("headers", httpResponse.getAllHeaders());
 			request.putExtra(Request.STATUS_CODE, statusCode);
+			Header[] allHeaders2 = httpResponse.getAllHeaders();
+			for (Header header : allHeaders2) {
+				logger.info("响应的的header--->"+header.getName()+":"+header.getValue());
+			}
 			// 如果是正常的200状态码
 			if (statusAccept(acceptStatCode, statusCode)) {
 				Page page = handleResponse(request, charset, httpResponse, task);
+				
 				onSuccess(request);
 				logger.info(request.getMethod() + " statusCode-->" + statusCode
-						+ " 获取页面成功");
+						+ " 获取页面成功  "+request.getUrl());
 				return page;
 				// 如果是302
 			} else if (statusCode == HttpStatus.SC_MOVED_TEMPORARILY) {
@@ -125,8 +180,10 @@ public class HttpClientDownloader extends AbstractDownloader {
 				return page;
 				// 如果是401
 			} else if (statusCode == HttpStatus.SC_UNAUTHORIZED) {
+				Page page = handleResponse(request, charset, httpResponse, task);
 				logger.warn("未授权，禁止访问：" + statusCode + "\t" + request.getUrl());
-				return null;
+				logger.info(page.getHtml().toString());
+				return page;
 				//如果是403
 			} else if (statusCode==HttpStatus.SC_FORBIDDEN) {
 				logger.warn("Forbidden,没有权限访问该资源：" + statusCode + "\t" + request.getUrl());
@@ -181,7 +238,7 @@ public class HttpClientDownloader extends AbstractDownloader {
 		return acceptStatCode.contains(statusCode);
 	}
 
-	protected HttpUriRequest getHttpUriRequest(Request request, Site site,
+	public HttpUriRequest getHttpUriRequest(Request request, Site site,
 			Map<String, String> headers, HttpHost proxy) {
 		RequestBuilder requestBuilder = selectRequestMethod(request).setUri(
 				request.getUrl());
@@ -199,6 +256,10 @@ public class HttpClientDownloader extends AbstractDownloader {
 		if (proxy != null) {
 			requestConfigBuilder.setProxy(proxy);
 			request.putExtra(Request.PROXY, proxy);
+		}else {
+			//设置本地代理，可以抓取程序发送的数据包,这样写报错了：PKIX path building failed。
+//			requestConfigBuilder.setProxy(new HttpHost("127.0.0.1", 8888));
+//			request.putExtra(Request.PROXY, proxy);
 		}
 		requestBuilder.setConfig(requestConfigBuilder.build());
 		return requestBuilder.build();
