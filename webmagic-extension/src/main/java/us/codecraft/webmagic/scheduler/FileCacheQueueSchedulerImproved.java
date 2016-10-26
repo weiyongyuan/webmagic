@@ -247,7 +247,6 @@ public class FileCacheQueueSchedulerImproved extends DuplicateRemovedScheduler
 		queue.add(request);
 		if (urls.add(request.getUrl())) {
 			fileUrlWriter.println(request.getUrl());
-			fileCursorWriter.println(cursor.incrementAndGet());
 		}
 	}
 
@@ -263,7 +262,7 @@ public class FileCacheQueueSchedulerImproved extends DuplicateRemovedScheduler
 		if (!inited.get()) {
 			init(task);
 		}
-		//fileCursorWriter.println(cursor.incrementAndGet());
+		fileCursorWriter.println(cursor.incrementAndGet());
 		return queue.poll();
 	}
 
