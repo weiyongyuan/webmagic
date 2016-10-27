@@ -3,6 +3,7 @@ package us.codecraft.webmagic;
 import com.google.common.collect.Lists;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.http.HttpHost;
+import org.apache.http.HttpStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import us.codecraft.webmagic.downloader.Downloader;
@@ -165,6 +166,7 @@ public class Spider implements Runnable, Task {
      */
     public Spider setUUID(String uuid) {
         this.uuid = uuid;
+        site.setUuid(uuid);
         return this;
     }
 
@@ -304,7 +306,7 @@ public class Spider implements Runnable, Task {
     public void run() {
         checkRunningStat();
         initComponent();
-        logger.info("Spider " + getUUID() + " started!");
+        logger.info("Spider " +this.pageProcessor.getClass()+" "+ getUUID() + " started!");
         while (!Thread.currentThread().isInterrupted() && stat.get() == STAT_RUNNING) {
             Request request = scheduler.poll(this);
             if (request == null) {
@@ -406,6 +408,7 @@ public class Spider implements Runnable, Task {
         if (page == null) {
             throw new RuntimeException("unaccpetable response status");
         }
+        
         // for cycle retry
         if (page.isNeedCycleRetry()) {
             extractAndAddRequests(page, true);
