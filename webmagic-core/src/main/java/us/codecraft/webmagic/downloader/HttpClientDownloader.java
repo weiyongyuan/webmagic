@@ -13,12 +13,14 @@ import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
 import org.apache.http.NameValuePair;
 import org.apache.http.annotation.ThreadSafe;
+import org.apache.http.client.HttpClient;
 import org.apache.http.client.config.CookieSpecs;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.methods.RequestBuilder;
 import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -86,7 +88,6 @@ public class HttpClientDownloader extends AbstractDownloader {
 		return httpClient;
 	}
 	public CloseableHttpClient getHttpClient(Site site,Request request, Proxy proxy) {
-		
 		if (request == null) {
 			return httpClientGenerator.getClient(null, proxy);
 		}
@@ -141,7 +142,7 @@ public class HttpClientDownloader extends AbstractDownloader {
 			for (Header header : allHeaders) {
 				logger.info("请求之前的header--->"+header.getName()+":"+header.getValue());
 			}
-			
+			CloseableHttpClient httpClient = getHttpClient(site, proxy);
 			httpResponse = getHttpClient(site, proxy).execute(httpUriRequest);// getHttpClient�������˴�����֤
 			statusCode = httpResponse.getStatusLine().getStatusCode();
 			

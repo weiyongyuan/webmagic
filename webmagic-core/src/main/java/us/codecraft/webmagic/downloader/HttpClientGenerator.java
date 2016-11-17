@@ -17,6 +17,7 @@ import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.impl.client.*;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.impl.cookie.BasicClientCookie;
+import org.apache.http.impl.cookie.BasicClientCookie2;
 import org.apache.http.protocol.HttpContext;
 import us.codecraft.webmagic.Site;
 import us.codecraft.webmagic.proxy.Proxy;

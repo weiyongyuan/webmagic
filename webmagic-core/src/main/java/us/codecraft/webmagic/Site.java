@@ -479,7 +479,7 @@ public class Site {
                 ", acceptStatCode=" + acceptStatCode +
                 ", headers=" + headers +
                 ", uuid=" + uuid +
-                '}';
+                '}'+"hashCode="+this.hashCode();
     }
 
     /**
