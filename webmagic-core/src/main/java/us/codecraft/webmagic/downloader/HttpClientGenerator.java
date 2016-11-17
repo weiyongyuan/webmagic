@@ -17,6 +17,7 @@ import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.impl.client.*;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.impl.cookie.BasicClientCookie;
+import org.apache.http.impl.cookie.BasicClientCookie2;
 import org.apache.http.protocol.HttpContext;
 import us.codecraft.webmagic.Site;
 import us.codecraft.webmagic.proxy.Proxy;
@@ -91,9 +92,8 @@ public class HttpClientGenerator {
         }
 
 
-        SocketConfig socketConfig = SocketConfig.custom().setSoTimeout(site.getTimeOut()).setSoKeepAlive(true).setTcpNoDelay(true).build();
+        SocketConfig socketConfig = SocketConfig.custom().setSoKeepAlive(true).setTcpNoDelay(true).build();
         httpClientBuilder.setDefaultSocketConfig(socketConfig);
-        connectionManager.setDefaultSocketConfig(socketConfig);
         if (site != null) {
             httpClientBuilder.setRetryHandler(new DefaultHttpRequestRetryHandler(site.getRetryTimes(), true));
         }

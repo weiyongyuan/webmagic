@@ -110,6 +110,7 @@ public class SimpleProxyPool implements ProxyPool {
 
     private Map<String, Proxy> prepareForSaving() {
         Map<String, Proxy> tmp = new HashMap<String, Proxy>();
+        System.out.println("allProxy:"+allProxy);
         for (Entry<String, Proxy> e : allProxy.entrySet()) {
             Proxy p = e.getValue();
             p.setFailedNum(0);
