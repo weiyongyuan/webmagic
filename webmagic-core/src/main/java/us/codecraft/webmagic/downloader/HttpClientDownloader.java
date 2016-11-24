@@ -188,17 +188,27 @@ public class HttpClientDownloader extends AbstractDownloader {
 				//如果是403
 			} else if (statusCode==HttpStatus.SC_FORBIDDEN) {
 				logger.warn("Forbidden,没有权限访问该资源：" + statusCode + "\t" + request.getUrl());
-				return null;
+				Page page = handleResponse(request, charset, httpResponse, task);
+				return page;
 				//如果是404
 			} else if (statusCode==HttpStatus.SC_NOT_FOUND) {
 				logger.warn("该资源不存在，请检查访问路径：" + statusCode + "\t" + request.getUrl());
-				return null;
+				Page page = handleResponse(request, charset, httpResponse, task);
+				return page;
+				//如果是500
 			}else if (statusCode==HttpStatus.SC_INTERNAL_SERVER_ERROR) {
 				logger.warn("内部服务器错误：" + statusCode + "\t" + request.getUrl());
-				return null;
+				Page page = handleResponse(request, charset, httpResponse, task);
+				return page;
+			}else if(statusCode==HttpStatus.SC_BAD_GATEWAY){
+				logger.warn("（错误网关） 服务器作为网关或代理，从上游服务器收到无效响应。" + statusCode + "\t" + request.getUrl());
+				Page page = handleResponse(request, charset, httpResponse, task);
+				return page;
+
 			}else if (statusCode==HttpStatus.SC_SERVICE_UNAVAILABLE) {
 				logger.warn("服务无法获得：" + statusCode + "\t" + request.getUrl());
-				return null;
+				Page page = handleResponse(request, charset, httpResponse, task);
+				return page;
 			} else{
 				logger.warn("code error " + statusCode + "\t"
 						+ request.getUrl());
