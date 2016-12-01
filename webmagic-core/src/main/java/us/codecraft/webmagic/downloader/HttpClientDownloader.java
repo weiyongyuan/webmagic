@@ -107,6 +107,7 @@ public class HttpClientDownloader extends AbstractDownloader {
 
 	@Override
 	public Page download(Request request, Task task) {
+		long startTime = System.currentTimeMillis();
 		Site site = null;
 		if (task != null) {
 			site = task.getSite();
@@ -215,7 +216,7 @@ public class HttpClientDownloader extends AbstractDownloader {
 				return null;
 			}
 		} catch (IOException e) {
-			logger.warn("download page " + request.getUrl() + " error", e);
+			logger.warn("download page " + request.getUrl() +" statusCode="+statusCode+ " error", e);
 			if (site.getCycleRetryTimes() > 0) {
 				return addToCycleRetry(request, site);
 			}
@@ -237,6 +238,7 @@ public class HttpClientDownloader extends AbstractDownloader {
 			} catch (IOException e) {
 				logger.warn("close response fail", e);
 			}
+			logger.info("请求"+request.getUrl()+"获得响应耗时:"+(System.currentTimeMillis()-startTime)+"毫秒");
 		}
 	}
 
