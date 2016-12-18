@@ -57,6 +57,7 @@ public class Site {
 
     private boolean useGzip = true;
 
+    protected String uuid;
     /**
      * @see us.codecraft.webmagic.utils.HttpConstant.Header
      * @deprecated
@@ -318,6 +319,18 @@ public class Site {
         headers.put(key, value);
         return this;
     }
+    
+    /**
+     * 移除不需要的header
+     * @param key
+     * @return
+     *@author weirongzhi
+     *@2016年10月24日下午7:44:34
+     */
+    public Site removeHeader(String key){
+    	headers.remove(key);
+    	return this;
+    }
 
     /**
      * Set retry times when download fail, 0 by default.<br>
@@ -465,7 +478,8 @@ public class Site {
                 ", timeOut=" + timeOut +
                 ", acceptStatCode=" + acceptStatCode +
                 ", headers=" + headers +
-                '}';
+                ", uuid=" + uuid +
+                '}'+"hashCode="+this.hashCode();
     }
 
     /**
@@ -487,7 +501,7 @@ public class Site {
      * @return this
      */
     public Site setHttpProxyPool(List<String[]> httpProxyList, boolean isUseLastProxy) {
-        this.httpProxyPool=new SimpleProxyPool(httpProxyList, isUseLastProxy);
+        this.httpProxyPool=new SimpleProxyPool(httpProxyList, isUseLastProxy).enable(true);
         return this;
     }
 
@@ -517,4 +531,13 @@ public class Site {
         httpProxyPool.returnProxy(proxy,statusCode);
     }
 
+	public String getUuid() {
+		return uuid;
+	}
+
+	public void setUuid(String uuid) {
+		this.uuid = uuid;
+	}
+
+    
 }
