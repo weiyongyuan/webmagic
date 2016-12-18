@@ -487,7 +487,7 @@ public class Site {
      * @return this
      */
     public Site setHttpProxyPool(List<String[]> httpProxyList, boolean isUseLastProxy) {
-        this.httpProxyPool=new SimpleProxyPool(httpProxyList, isUseLastProxy);
+        this.httpProxyPool=new SimpleProxyPool(httpProxyList, isUseLastProxy).enable(true);
         return this;
     }
 

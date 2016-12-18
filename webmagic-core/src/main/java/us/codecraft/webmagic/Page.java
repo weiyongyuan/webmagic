@@ -8,6 +8,7 @@ import us.codecraft.webmagic.utils.UrlUtils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
 /**
  * Object storing extracted result and urls to fetch.<br>
@@ -216,6 +217,13 @@ public class Page {
     public Page setRawText(String rawText) {
         this.rawText = rawText;
         return this;
+    }
+    
+    /*
+     * URL是否符合正则表达式
+     */
+    public boolean matches(String regex){
+    	return Pattern.matches(regex, this.getUrl().toString());
     }
 
     @Override
