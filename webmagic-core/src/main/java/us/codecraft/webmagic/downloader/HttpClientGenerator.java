@@ -2,6 +2,7 @@ package us.codecraft.webmagic.downloader;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpException;
+import org.apache.http.HttpHost;
 import org.apache.http.HttpRequest;
 import org.apache.http.HttpRequestInterceptor;
 import org.apache.http.auth.AuthScope;
@@ -15,6 +16,7 @@ import org.apache.http.conn.socket.ConnectionSocketFactory;
 import org.apache.http.conn.socket.PlainConnectionSocketFactory;
 import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.impl.client.*;
+import org.apache.http.impl.conn.DefaultProxyRoutePlanner;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.impl.cookie.BasicClientCookie;
 import org.apache.http.impl.cookie.BasicClientCookie2;
@@ -72,6 +74,12 @@ public class HttpClientGenerator {
             httpClientBuilder.setDefaultCredentialsProvider(credsProvider);
         }
         
+        //位荣芝加入
+        if (proxy!=null) {
+        	HttpHost httpHost = proxy.getHttpHost();
+        	DefaultProxyRoutePlanner routePlanner = new DefaultProxyRoutePlanner(httpHost);
+        	httpClientBuilder.setRoutePlanner(routePlanner);
+		}
         httpClientBuilder.setConnectionManager(connectionManager);
         if (site != null && site.getUserAgent() != null) {
             httpClientBuilder.setUserAgent(site.getUserAgent());
@@ -101,7 +109,7 @@ public class HttpClientGenerator {
         return httpClientBuilder.build();
     }
 
-    private void generateCookie(HttpClientBuilder httpClientBuilder, Site site) {
+    public static CookieStore generateCookie(HttpClientBuilder httpClientBuilder, Site site) {
         CookieStore cookieStore = new BasicCookieStore();
         for (Map.Entry<String, String> cookieEntry : site.getCookies().entrySet()) {
             BasicClientCookie cookie = new BasicClientCookie(cookieEntry.getKey(), cookieEntry.getValue());
@@ -116,6 +124,7 @@ public class HttpClientGenerator {
             }
         }
         httpClientBuilder.setDefaultCookieStore(cookieStore);
+        return cookieStore;
     }
 
 }

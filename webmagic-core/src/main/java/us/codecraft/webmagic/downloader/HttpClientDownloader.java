@@ -19,8 +19,10 @@ import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.methods.RequestBuilder;
+import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
+import org.apache.http.protocol.HttpContext;
 import org.apache.http.util.EntityUtils;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -52,53 +54,36 @@ import us.codecraft.webmagic.utils.UrlUtils;
 public class HttpClientDownloader extends AbstractDownloader {
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
-	
-	private final ConcurrentLinkedHashMap<String, CloseableHttpClient> httpClients = new ConcurrentLinkedHashMap.Builder<String, CloseableHttpClient>().maximumWeightedCapacity(200).listener(new EvictionListener<String, CloseableHttpClient>() {
-		
-		@Override
-		public void onEviction(String key, CloseableHttpClient value) {
-			logger.info("当前失效的key="+key+" value="+value);
-		}
-	}).build();
+	private final ConcurrentLinkedHashMap<String, CloseableHttpClient> httpClients = new ConcurrentLinkedHashMap.Builder<String, CloseableHttpClient>()
+			.maximumWeightedCapacity(200).listener(new EvictionListener<String, CloseableHttpClient>() {
+
+				@Override
+				public void onEviction(String key, CloseableHttpClient value) {
+					logger.info("当前失效的key=" + key + " value=" + value);
+				}
+			}).build();
 
 	private HttpClientGenerator httpClientGenerator = new HttpClientGenerator();
-
+	
 	public CloseableHttpClient getHttpClient(Site site, Proxy proxy) {
-		
+
 		if (site == null) {
 			return httpClientGenerator.getClient(null, proxy);
 		}
 		String uuid = site.getUuid();
 		CloseableHttpClient httpClient = null;
-		if (uuid==null) {
-			uuid=site.getDomain();
-			httpClient=httpClients.get(uuid);
+		if (uuid == null) {
+			uuid = site.getDomain();
+			httpClient = httpClients.get(uuid);
 		} else {
-			httpClient =httpClients.get(uuid);
+			httpClient = httpClients.get(uuid);
 		}
-		if (httpClient== null) {
+		if (httpClient == null) {
 			synchronized (this) {
 				httpClient = httpClients.get(uuid);
 				if (httpClient == null) {
-					httpClient =httpClientGenerator.getClient(site, proxy);
-					httpClients.put(uuid, httpClient);
-				}
-			}
-		}
-		return httpClient;
-	}
-	public CloseableHttpClient getHttpClient(Site site,Request request, Proxy proxy) {
-		if (request == null) {
-			return httpClientGenerator.getClient(null, proxy);
-		}
-		String hashCode = request.hashCode()+"";
-		CloseableHttpClient httpClient = httpClients.get(hashCode);
-		if (httpClient == null) {
-			synchronized (this) {
-				httpClient = httpClients.get(hashCode);
-				if (httpClient == null) {
 					httpClient = httpClientGenerator.getClient(site, proxy);
-					httpClients.put(hashCode, httpClient);
+					httpClients.put(uuid, httpClient);
 				}
 			}
 		}
@@ -144,7 +129,8 @@ public class HttpClientDownloader extends AbstractDownloader {
 				logger.info("请求之前的header--->"+header.getName()+":"+header.getValue());
 			}
 			CloseableHttpClient httpClient = getHttpClient(site, proxy);
-			httpResponse = getHttpClient(site, proxy).execute(httpUriRequest);// getHttpClient�������˴�����֤
+			System.out.println(httpClient.hashCode());
+			httpResponse = getHttpClient(site, proxy).execute(httpUriRequest);// getHttpClient�������˴�����，这是作者原来的写法
 			statusCode = httpResponse.getStatusLine().getStatusCode();
 			
 			/*
@@ -165,7 +151,14 @@ public class HttpClientDownloader extends AbstractDownloader {
 			// 如果是正常的200状态码
 			if (statusAccept(acceptStatCode, statusCode)) {
 				Page page = handleResponse(request, charset, httpResponse, task);
-				
+				//将响应的cookie加入
+				Header[] headers2 = httpResponse.getHeaders("Set-Cookie");
+				for (Header header : headers2) {
+					if ("Set-Cookie".equals(header.getName())) {
+						logger.info("获取的response中的cookie为："+header.getName()+"="+header.getValue().substring(0, header.getValue().indexOf(";")));
+						//site.addHeader("Cookie", header.getValue().substring(0, header.getValue().indexOf(";")));
+					}
+				}
 				onSuccess(request);
 				logger.info(request.getMethod() + " statusCode-->" + statusCode
 						+ " 获取页面成功  "+request.getUrl());
@@ -194,7 +187,13 @@ public class HttpClientDownloader extends AbstractDownloader {
 				//如果是404
 			} else if (statusCode==HttpStatus.SC_NOT_FOUND) {
 				logger.warn("该资源不存在，请检查访问路径：" + statusCode + "\t" + request.getUrl());
+				//再次判断是不是关闭了连接
+				Header conn = httpResponse.getFirstHeader("Connection");
 				Page page = handleResponse(request, charset, httpResponse, task);
+				if ("close".equals(conn.getValue())) {
+					logger.info("对于请求"+page.getUrl()+"对方服务器关闭了连接,再次将该URL加入队列");
+					page.addTargetRequest(page.getRequest().putExtra(Request.CYCLE_TRIED_TIMES, "3"));
+				}
 				return page;
 				//如果是500
 			}else if (statusCode==HttpStatus.SC_INTERNAL_SERVER_ERROR) {
@@ -206,6 +205,10 @@ public class HttpClientDownloader extends AbstractDownloader {
 				Page page = handleResponse(request, charset, httpResponse, task);
 				return page;
 
+			}else if(statusCode==HttpStatus.SC_NOT_IMPLEMENTED){
+				logger.warn("(Not Implemented/未实现)服务器不支持请求中要求的功能。" + statusCode + "\t" + request.getUrl());
+				Page page = handleResponse(request, charset, httpResponse, task);
+				return page;
 			}else if (statusCode==HttpStatus.SC_SERVICE_UNAVAILABLE) {
 				logger.warn("服务无法获得：" + statusCode + "\t" + request.getUrl());
 				Page page = handleResponse(request, charset, httpResponse, task);
@@ -242,6 +245,11 @@ public class HttpClientDownloader extends AbstractDownloader {
 		}
 	}
 
+	private HttpClientContext createHttpClientContext() {
+		HttpClientContext context = HttpClientContext.create();
+		return context;
+	}
+
 	@Override
 	public void setThread(int thread) {
 		httpClientGenerator.setPoolSize(thread);
@@ -251,28 +259,23 @@ public class HttpClientDownloader extends AbstractDownloader {
 		return acceptStatCode.contains(statusCode);
 	}
 
-	public HttpUriRequest getHttpUriRequest(Request request, Site site,
-			Map<String, String> headers, HttpHost proxy) {
-		RequestBuilder requestBuilder = selectRequestMethod(request).setUri(
-				request.getUrl());
+	public HttpUriRequest getHttpUriRequest(Request request, Site site, Map<String, String> headers, HttpHost proxy) {
+		RequestBuilder requestBuilder = selectRequestMethod(request).setUri(request.getUrl());
 		if (headers != null) {
 			for (Map.Entry<String, String> headerEntry : headers.entrySet()) {
-				requestBuilder.addHeader(headerEntry.getKey(),
-						headerEntry.getValue());
+				requestBuilder.addHeader(headerEntry.getKey(), headerEntry.getValue());
 			}
 		}
 		RequestConfig.Builder requestConfigBuilder = RequestConfig.custom()
-				.setConnectionRequestTimeout(site.getTimeOut())
-				.setSocketTimeout(site.getTimeOut())
-				.setConnectTimeout(site.getTimeOut())
-				.setCookieSpec(CookieSpecs.BEST_MATCH);
+				.setConnectionRequestTimeout(site.getTimeOut()).setSocketTimeout(site.getTimeOut())
+				.setConnectTimeout(site.getTimeOut()).setCookieSpec(CookieSpecs.BEST_MATCH);
 		if (proxy != null) {
 			requestConfigBuilder.setProxy(proxy);
 			request.putExtra(Request.PROXY, proxy);
-		}else {
-			//设置本地代理，可以抓取程序发送的数据包,这样写报错了：PKIX path building failed。
-//			requestConfigBuilder.setProxy(new HttpHost("127.0.0.1", 8888));
-//			request.putExtra(Request.PROXY, proxy);
+		} else {
+			// 设置本地代理，可以抓取程序发送的数据包,这样写报错了：PKIX path building failed。
+			// requestConfigBuilder.setProxy(new HttpHost("127.0.0.1", 8888));
+			// request.putExtra(Request.PROXY, proxy);
 		}
 		requestBuilder.setConfig(requestConfigBuilder.build());
 		return requestBuilder.build();
@@ -285,8 +288,7 @@ public class HttpClientDownloader extends AbstractDownloader {
 			return RequestBuilder.get();
 		} else if (method.equalsIgnoreCase(HttpConstant.Method.POST)) {
 			RequestBuilder requestBuilder = RequestBuilder.post();
-			NameValuePair[] nameValuePair = (NameValuePair[]) request
-					.getExtra("nameValuePair");
+			NameValuePair[] nameValuePair = (NameValuePair[]) request.getExtra("nameValuePair");
 			if (nameValuePair != null && nameValuePair.length > 0) {
 				requestBuilder.addParameters(nameValuePair);
 			}
@@ -303,8 +305,8 @@ public class HttpClientDownloader extends AbstractDownloader {
 		throw new IllegalArgumentException("Illegal HTTP Method " + method);
 	}
 
-	protected Page handleResponse(Request request, String charset,
-			HttpResponse httpResponse, Task task) throws IOException {
+	protected Page handleResponse(Request request, String charset, HttpResponse httpResponse, Task task)
+			throws IOException {
 		String content = getContent(charset, httpResponse);
 		Page page = new Page();
 		page.setRawText(content);
@@ -314,28 +316,23 @@ public class HttpClientDownloader extends AbstractDownloader {
 		return page;
 	}
 
-	protected String getContent(String charset, HttpResponse httpResponse)
-			throws IOException {
+	protected String getContent(String charset, HttpResponse httpResponse) throws IOException {
 		if (charset == null) {
-			byte[] contentBytes = IOUtils.toByteArray(httpResponse.getEntity()
-					.getContent());
+			byte[] contentBytes = IOUtils.toByteArray(httpResponse.getEntity().getContent());
 			String htmlCharset = getHtmlCharset(httpResponse, contentBytes);
 			if (htmlCharset != null) {
 				return new String(contentBytes, htmlCharset);
 			} else {
-				logger.warn(
-						"Charset autodetect failed, use {} as charset. Please specify charset in Site.setCharset()",
+				logger.warn("Charset autodetect failed, use {} as charset. Please specify charset in Site.setCharset()",
 						Charset.defaultCharset());
 				return new String(contentBytes);
 			}
 		} else {
-			return IOUtils.toString(httpResponse.getEntity().getContent(),
-					charset);
+			return IOUtils.toString(httpResponse.getEntity().getContent(), charset);
 		}
 	}
 
-	protected String getHtmlCharset(HttpResponse httpResponse,
-			byte[] contentBytes) throws IOException {
+	protected String getHtmlCharset(HttpResponse httpResponse, byte[] contentBytes) throws IOException {
 		String charset;
 		// charset
 		// 1、encoding in http header Content-Type
@@ -358,9 +355,7 @@ public class HttpClientDownloader extends AbstractDownloader {
 				String metaContent = link.attr("content");
 				String metaCharset = link.attr("charset");
 				if (metaContent.indexOf("charset") != -1) {
-					metaContent = metaContent.substring(
-							metaContent.indexOf("charset"),
-							metaContent.length());
+					metaContent = metaContent.substring(metaContent.indexOf("charset"), metaContent.length());
 					charset = metaContent.split("=")[1];
 					break;
 				}

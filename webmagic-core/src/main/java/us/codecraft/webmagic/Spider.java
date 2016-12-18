@@ -320,6 +320,7 @@ public class Spider implements Runnable, Task {
                 threadPool.execute(new Runnable() {
                     @Override
                     public void run() {
+                    	long start = System.currentTimeMillis();
                         try {
                             processRequest(requestFinal);
                             onSuccess(requestFinal);
@@ -329,6 +330,7 @@ public class Spider implements Runnable, Task {
                         } finally {
                             pageCount.incrementAndGet();
                             signalNewUrl();
+                            System.out.println("线程执行请求"+requestFinal.getUrl()+"的时间为"+(System.currentTimeMillis()-start)+"毫秒");
                         }
                     }
                 });
