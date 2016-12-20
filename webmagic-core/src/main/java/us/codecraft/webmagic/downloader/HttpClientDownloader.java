@@ -18,7 +18,6 @@ import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.methods.RequestBuilder;
-import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.util.EntityUtils;
 import org.jsoup.Jsoup;
@@ -28,7 +27,6 @@ import org.jsoup.select.Elements;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.Sets;
 import com.googlecode.concurrentlinkedhashmap.ConcurrentLinkedHashMap;
 import com.googlecode.concurrentlinkedhashmap.EvictionListener;
 
@@ -40,6 +38,7 @@ import us.codecraft.webmagic.proxy.Proxy;
 import us.codecraft.webmagic.selector.PlainText;
 import us.codecraft.webmagic.utils.HttpConstant;
 import us.codecraft.webmagic.utils.UrlUtils;
+import us.codecraft.webmagic.utils.WMCollections;
 
 /**
  * The http downloader based on HttpClient.
@@ -103,7 +102,7 @@ public class HttpClientDownloader extends AbstractDownloader {
 			charset = site.getCharset();
 			headers = site.getHeaders();
 		} else {
-			acceptStatCode = Sets.newHashSet(200);
+			acceptStatCode = WMCollections.newHashSet(200);
 		}
 		logger.info("downloading page {}", request.getUrl());
 		CloseableHttpResponse httpResponse = null;
@@ -240,11 +239,6 @@ public class HttpClientDownloader extends AbstractDownloader {
 			}
 			logger.info("请求"+request.getUrl()+"获得响应耗时:"+(System.currentTimeMillis()-startTime)+"毫秒");
 		}
-	}
-
-	private HttpClientContext createHttpClientContext() {
-		HttpClientContext context = HttpClientContext.create();
-		return context;
 	}
 
 	@Override
